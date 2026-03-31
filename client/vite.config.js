@@ -7,14 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'Aura Finance Tracker',
         short_name: 'Aura Finance',
-        description: 'Track your personal expenses and income easily!',
-        theme_color: '#0ea5e9', // Sky blue color namma app theme
+        display: 'standalone',
+        theme_color: '#0ea5e9',
         background_color: '#f8fafc',
-        display: 'standalone', // Ithu thaan browser URL bar-a maraichu App maari kaatum
         icons: [
           {
             src: '/icon-192x192.png',
@@ -29,5 +27,9 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  // INDHA BUILD SECTION-A IPPO ADD PANNUNGA
+  build: {
+    chunkSizeWarningLimit: 2000, // Intha limit-a mathitta antha warning error-a maarathu
+  }
 })
