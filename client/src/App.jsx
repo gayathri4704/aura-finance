@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PlusCircle, Wallet, TrendingDown, TrendingUp, PieChart as PieIcon, Activity, Trash2, Bell, AlertTriangle, Pencil, X, Download, LogOut, Lock, Mail, User } from 'lucide-react';
+// GAYATHRI: Added 'Download' icon for Excel
+import { PlusCircle, Wallet, TrendingDown, TrendingUp, PieChart as PieIcon, Activity, Trash2, Bell, AlertTriangle, Pencil, X, Download } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+// GAYATHRI: Import Excel Library
 import * as XLSX from 'xlsx';
 
 function App() {
-  // ==========================================
-  // 🔐 AUTHENTICATION STATES
-  // ==========================================
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || null);
-  const [isLoginView, setIsLoginView] = useState(true);
-  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
-  const [authError, setAuthError] = useState('');
-
-  // ==========================================
-  // 💰 DASHBOARD STATES
-  // ==========================================
   const [expenses, setExpenses] = useState([]);
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('Expense');
@@ -26,58 +16,18 @@ function App() {
   const [showNotification, setShowNotification] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // ==========================================
-  // ⚙️ API FUNCTIONS
-  // ==========================================
-  
-  // Auth Handlers
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    try {
-      const endpoint = isLoginView ? '/api/login' : '/api/register';
-      const res = await axios.post(`http://localhost:5000${endpoint}`, authForm);
-      
-      if (isLoginView) {
-        // Save token & user data to browser storage
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        setToken(res.data.token);
-        setUser(res.data.user);
-      } else {
-        alert("Account Created! You can now log in.");
-        setIsLoginView(true);
-      }
-    } catch (err) {
-      setAuthError(err.response?.data?.error || "Something went wrong!");
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-    setExpenses([]);
-  };
-
-  // Expense Handlers
   const fetchExpenses = async () => {
-    if (!user) return;
     try {
-      // Fetch only THIS user's data
-      const res = await axios.get(`http://localhost:5000/api/expenses?user_id=${user.id}`);
+      const res = await axios.get('https://aura-finance-v249.onrender.com/api/expenses');
       setExpenses(res.data);
     } catch (err) {
-      console.error("Fetch error", err);
+      console.error("Backend connect aagala. Check your server!", err);
     }
   };
 
   useEffect(() => {
-    if (token && user) {
-      fetchExpenses();
-    }
-  }, [token, user]);
+    fetchExpenses();
+  }, []);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -87,15 +37,15 @@ function App() {
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/expenses/${editingId}`, {
+        await axios.put(`https://aura-finance-v249.onrender.com/api/expenses/${editingId}`, {
           amount: parseFloat(amount),
           category: finalCategory,
           type: type 
         });
         setEditingId(null); 
       } else {
-        await axios.post('http://localhost:5000/api/expenses', {
-          user_id: user.id, // Connected to logged-in user!
+        await axios.post('https://aura-finance-v249.onrender.com/api/expenses', {
+          user_id: 1, 
           amount: parseFloat(amount),
           category: finalCategory,
           description: "Personal",
@@ -115,7 +65,7 @@ function App() {
   const deleteExpense = async (id) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/expenses/${id}`);
+        await axios.delete(`https://aura-finance-v249.onrender.com/api/expenses/${id}`);
         fetchExpenses(); 
       } catch (err) {
         console.error("Delete panna mudila", err);
@@ -123,23 +73,11 @@ function App() {
     }
   };
 
-  const exportToExcel = () => {
-    const excelData = expenses.map(exp => ({
-      Date: new Date(exp.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
-      Type: exp.type || 'Expense',
-      Category: exp.category,
-      Amount: parseFloat(exp.amount)
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "My Transactions");
-    XLSX.writeFile(workbook, "AuraFinance_Report.xlsx");
-  };
-
   const startEdit = (exp) => {
     setEditingId(exp.id);
     setAmount(exp.amount);
     setType(exp.type || 'Expense');
+    
     const standardCats = (exp.type || 'Expense') === 'Expense' ? expenseCategories : incomeCategories;
     if (standardCats.includes(exp.category)) {
       setCategory(exp.category);
@@ -148,6 +86,7 @@ function App() {
       setCategory('Others');
       setCustomCategory(exp.category);
     }
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -158,12 +97,25 @@ function App() {
     setCustomCategory('');
   };
 
-  // ==========================================
-  // 🧮 CALCULATIONS & DATA SETUP
-  // ==========================================
+  // GAYATHRI: Excel Download Function
+  const exportToExcel = () => {
+    const excelData = expenses.map(exp => ({
+      Date: new Date(exp.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+      Type: exp.type || 'Expense',
+      Category: exp.category,
+      Amount: parseFloat(exp.amount)
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "My Transactions");
+    XLSX.writeFile(workbook, "AuraFinance_Report.xlsx");
+  };
+
   const totalIncome = expenses.filter(e => e.type === 'Income').reduce((s, e) => s + parseFloat(e.amount), 0);
   const totalExpense = expenses.filter(e => e.type === 'Expense' || !e.type).reduce((s, e) => s + parseFloat(e.amount), 0);
   const currentBalance = totalIncome - totalExpense;
+  
   const remainingBudget = monthlyBudget - totalExpense;
   const isOverBudget = remainingBudget < 0; 
   const overspentAmount = Math.abs(remainingBudget); 
@@ -180,98 +132,21 @@ function App() {
   }, []);
 
   const COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#eab308', '#14b8a6'];
+
   const expenseCategories = ["Food", "Rent", "Shopping", "Travel", "Investments", "Others"];
   const incomeCategories = ["Salary", "Freelance", "Bonus", "Investments Return", "Others"];
 
-  // ==========================================
-  // 🎨 UI RENDER: AUTHENTICATION SCREEN
-  // ==========================================
-  if (!token) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 md:p-12 rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-extrabold text-slate-800 flex items-center justify-center tracking-tight mb-2">
-              <Activity className="mr-2 text-sky-500 w-10 h-10" /> 
-              Aura<span className="text-sky-600 ml-1">Finance</span>
-            </h1>
-            <p className="text-slate-500 font-medium">
-              {isLoginView ? 'Welcome back! Please login.' : 'Create an account to start tracking.'}
-            </p>
-          </div>
-
-          {authError && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-bold text-center mb-6 border border-red-200">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleAuth} className="space-y-5">
-            {!isLoginView && (
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <input 
-                  type="text" placeholder="Full Name" required
-                  className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-sky-200 outline-none transition"
-                  value={authForm.name} onChange={e => setAuthForm({...authForm, name: e.target.value})}
-                />
-              </div>
-            )}
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-              <input 
-                type="email" placeholder="Email Address" required
-                className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-sky-200 outline-none transition"
-                value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})}
-              />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-              <input 
-                type="password" placeholder="Password" required
-                className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-sky-200 outline-none transition"
-                value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})}
-              />
-            </div>
-
-            <button type="submit" className="w-full bg-sky-600 text-white py-4 rounded-xl text-lg font-bold shadow-lg hover:bg-sky-700 hover:shadow-sky-200 transform active:scale-95 transition-all">
-              {isLoginView ? 'Log In' : 'Sign Up'}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center text-slate-500">
-            {isLoginView ? "Don't have an account? " : "Already have an account? "}
-            <button 
-              onClick={() => { setIsLoginView(!isLoginView); setAuthError(''); setAuthForm({name:'', email:'', password:''})}} 
-              className="text-sky-600 font-bold hover:underline"
-            >
-              {isLoginView ? 'Sign Up' : 'Log In'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // 🎨 UI RENDER: MAIN DASHBOARD
-  // ==========================================
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       
-      {/* HEADER WITH LOGOUT */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b border-slate-200 relative gap-4">
+      {/* HEADER */}
+      <header className="flex justify-between items-center mb-8 pb-4 border-b border-slate-200 relative">
         <h1 className="text-3xl font-extrabold text-slate-800 flex items-center tracking-tight">
           <Activity className="mr-3 text-sky-500 w-8 h-8" /> 
           Aura<span className="text-sky-600 ml-1">Finance</span>
         </h1>
         
-        <div className="flex items-center gap-4">
-          {/* Welcome User Badge */}
-          <div className="bg-sky-100 text-sky-800 px-4 py-2 rounded-full font-bold text-sm hidden sm:block">
-            Hi, {user.name} 👋
-          </div>
-
+        <div className="relative">
           {(isOverBudget || isNearBudget) && (
             <button 
               onClick={() => setShowNotification(!showNotification)}
@@ -281,18 +156,8 @@ function App() {
               <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
           )}
-
-          {/* Logout Button */}
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-slate-200 text-slate-700 px-4 py-2 rounded-full font-bold text-sm hover:bg-slate-300 transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> Logout
-          </button>
-
-          {/* Notifications Dropdown */}
           {showNotification && (isOverBudget || isNearBudget) && (
-            <div className="absolute right-0 top-14 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-50 animate-in fade-in slide-in-from-top-4">
+            <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-50 animate-in fade-in slide-in-from-top-4">
               {isOverBudget ? (
                 <div className="text-red-700">
                   <div className="flex items-center gap-2 border-b border-red-100 pb-2 mb-3">
@@ -355,6 +220,7 @@ function App() {
             </h2>
             
             <form onSubmit={handleSave} className="space-y-5">
+              
               <div className="flex bg-slate-100 p-1 rounded-xl opacity-90">
                 <button type="button" onClick={() => {setType('Expense'); setCategory('Food');}} className={`flex-1 py-2 font-bold rounded-lg transition ${type === 'Expense' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Expense</button>
                 <button type="button" onClick={() => {setType('Income'); setCategory('Salary');}} className={`flex-1 py-2 font-bold rounded-lg transition ${type === 'Income' ? 'bg-white text-emerald-500 shadow-sm' : 'text-slate-400'}`}>Income</button>
@@ -363,26 +229,42 @@ function App() {
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                 <input 
-                  type="number" placeholder="Enter Amount" 
+                  type="number" 
+                  placeholder="Enter Amount" 
                   className="w-full p-4 pl-10 text-lg bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-sky-200 outline-none"
-                  value={amount} onChange={(e) => setAmount(e.target.value)}
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)}
                 />
               </div>
               
-              <select className="w-full p-4 text-base bg-slate-50 border border-slate-200 rounded-xl outline-none" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <select 
+                className="w-full p-4 text-base bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                value={category} 
+                onChange={(e) => setCategory(e.target.value)}
+              >
                 {(type === 'Expense' ? expenseCategories : incomeCategories).map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
 
               {category === 'Others' && (
-                <input type="text" placeholder="Type category..." required
+                <input 
+                  type="text" 
+                  placeholder="Type category..." 
                   className="w-full p-4 text-base bg-slate-50 border border-orange-200 rounded-xl"
-                  value={customCategory} onChange={(e) => setCustomCategory(e.target.value)}
+                  value={customCategory} 
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  required
                 />
               )}
 
-              <button type="submit" className={`w-full text-white py-4 rounded-xl text-lg font-bold shadow-lg transform active:scale-95 transition-all ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : type === 'Income' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-sky-600 hover:bg-sky-700 shadow-sky-200'}`}>
+              <button 
+                type="submit" 
+                className={`w-full text-white py-4 rounded-xl text-lg font-bold shadow-lg transform active:scale-95 transition-all ${
+                  editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' :
+                  type === 'Income' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200' : 'bg-sky-600 hover:bg-sky-700 shadow-sky-200'
+                }`}
+              >
                 {editingId ? 'Save Changes' : `Add ${type}`}
               </button>
             </form>
@@ -392,7 +274,12 @@ function App() {
              <span className="text-sm font-bold text-slate-500 block mb-2">Monthly Expense Target:</span>
              <div className="flex items-center bg-slate-50 rounded-lg px-4 py-2 border border-slate-200">
                <span className="mr-1 font-bold text-slate-400">₹</span>
-               <input type="number" value={monthlyBudget} onChange={(e) => setMonthlyBudget(Number(e.target.value) || 0)} className="bg-transparent text-slate-800 w-full font-extrabold text-xl outline-none" />
+               <input 
+                 type="number" 
+                 value={monthlyBudget}
+                 onChange={(e) => setMonthlyBudget(Number(e.target.value) || 0)}
+                 className="bg-transparent text-slate-800 w-full font-extrabold text-xl outline-none"
+               />
              </div>
           </div>
         </div>
@@ -433,13 +320,19 @@ function App() {
           )}
         </div>
 
-        {/* RIGHT: RECENT HISTORY */}
+        {/* RIGHT: RECENT HISTORY WITH EXPORT BUTTON */}
         <div className="bg-white p-7 rounded-3xl shadow-lg border border-slate-100 lg:col-span-1 max-h-[600px] flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center">
               <Activity className="mr-3 text-sky-500 w-6 h-6" /> Recent History
             </h2>
-            <button onClick={exportToExcel} className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors" title="Download as Excel">
+            
+            {/* GAYATHRI: Idhu thaan andha Export Button! */}
+            <button 
+              onClick={exportToExcel}
+              className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors"
+              title="Download as Excel"
+            >
               <Download className="w-4 h-4" /> Export
             </button>
           </div>
@@ -456,12 +349,18 @@ function App() {
                       {new Date(exp.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                   </div>
+                  
                   <div className="flex items-center gap-1">
                     <p className={`font-extrabold text-lg mr-2 whitespace-nowrap ${exp.type === 'Income' ? 'text-emerald-500' : 'text-red-500'}`}>
                       {exp.type === 'Income' ? '+' : '-'}₹{parseFloat(exp.amount).toLocaleString()}
                     </p>
-                    <button onClick={() => startEdit(exp)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all" title="Edit Record"><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => deleteExpense(exp.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all" title="Delete Record"><Trash2 className="w-4 h-4" /></button>
+                    
+                    <button onClick={() => startEdit(exp)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all" title="Edit Record">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => deleteExpense(exp.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all" title="Delete Record">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
