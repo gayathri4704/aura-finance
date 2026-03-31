@@ -18,7 +18,7 @@ function App() {
 
   const fetchExpenses = async () => {
     try {
-      const res = await axios.get('https://aura-finance-v249.onrender.com/api/expenses');
+      const res = await axios.get('https://aura-finance-1.onrender.com/api/expenses');
       setExpenses(res.data);
     } catch (err) {
       console.error("Backend connect aagala. Check your server!", err);
@@ -37,14 +37,14 @@ function App() {
 
     try {
       if (editingId) {
-        await axios.put(`https://aura-finance-v249.onrender.com/api/expenses/${editingId}`, {
+        await axios.put(`https://aura-finance-1.onrender.com/api/expenses/${editingId}`, {
           amount: parseFloat(amount),
           category: finalCategory,
           type: type 
         });
         setEditingId(null); 
       } else {
-        await axios.post('https://aura-finance-v249.onrender.com/api/expenses', {
+        await axios.post('https://aura-finance-1.onrender.com/api/expenses', {
           user_id: 1, 
           amount: parseFloat(amount),
           category: finalCategory,
@@ -65,7 +65,7 @@ function App() {
   const deleteExpense = async (id) => {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
-        await axios.delete(`https://aura-finance-v249.onrender.com/api/expenses/${id}`);
+        await axios.delete(`https://aura-finance-1.onrender.com/api/expenses/${id}`);
         fetchExpenses(); 
       } catch (err) {
         console.error("Delete panna mudila", err);
