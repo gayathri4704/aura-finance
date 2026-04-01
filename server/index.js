@@ -1,10 +1,20 @@
+const nodemailer = require('nodemailer');
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-// GAYATHRI: Security Packages ulla kondu varom
+// Security Packages
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
+// Email Setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 const app = express();
 app.use(cors());
@@ -23,24 +33,21 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 🔐 AUTHENTICATION APIs (NEW)
+// 🔐 AUTHENTICATION APIs
 // ==========================================
 
 // 1. REGISTER (Sign Up)
 app.post('/api/register', async (req, res) => {
   const { name, email, password } = req.body;
   try {
-    // Email already irukka nu check panrom
     const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userExists.rows.length > 0) {
       return res.status(400).json({ error: "Email already exists! Please Login." });
     }
 
-    // Password Encryption (Hashing)
     const salt = await bcrypt.genSalt(10);
     const encryptedPassword = await bcrypt.hash(password, salt);
 
-    // Save User in DB
     const newUser = await pool.query(
       'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
       [name, email, encryptedPassword]
@@ -57,19 +64,16 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    // Check if user exists
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (user.rows.length === 0) {
       return res.status(401).json({ error: "Account not found. Please Register!" });
     }
 
-    // Compare original password with encrypted password in DB
     const validPassword = await bcrypt.compare(password, user.rows[0].password);
     if (!validPassword) {
       return res.status(401).json({ error: "Incorrect Password!" });
     }
 
-    // Generate Token (Entry Pass)
     const token = jwt.sign({ id: user.rows[0].id }, JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ 
@@ -83,19 +87,17 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
 // ==========================================
-// 💰 EXPENSES APIs (UPDATED)
+// 💰 EXPENSES APIs
 // ==========================================
 
-// GET ALL (Filter by logged-in user)
+// GET ALL
 app.get('/api/expenses', async (req, res) => {
-  const { user_id } = req.query; // Puthusa add pannirukkom
+  const { user_id } = req.query; 
   try {
     let query = 'SELECT * FROM expenses ORDER BY date DESC';
     let params = [];
     
-    // User ID irundha, avanga data mattum anuppu
     if (user_id) {
       query = 'SELECT * FROM expenses WHERE user_id = $1 ORDER BY date DESC';
       params = [user_id];
@@ -109,19 +111,56 @@ app.get('/api/expenses', async (req, res) => {
   }
 });
 
+// ADD EXPENSE & EMAIL ALERT
 app.post('/api/expenses', async (req, res) => {
-  const { user_id, amount, category, description, type } = req.body;
+  const { user_id, amount, category, description, type, budgetLimit } = req.body;
   try {
+    // 1. Save in DB
     const newExpense = await pool.query(
       'INSERT INTO expenses (user_id, amount, category, description, type) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [user_id, amount, category, description, type]
     );
+
+    // 2. Email Logic
+    if (type === 'Expense') {
+      const totalRes = await pool.query(
+        "SELECT SUM(amount) as total FROM expenses WHERE user_id = $1 AND type = 'Expense'", 
+        [user_id]
+      );
+      
+      // GAYATHRI: Inga thaan andha Number() trick add aagirukku! 👇
+      const totalExpense = Number(totalRes.rows[0].total) || 0;
+      const BUDGET_LIMIT = Number(budgetLimit) || 0;
+
+      if (totalExpense > BUDGET_LIMIT) {
+        const userRes = await pool.query("SELECT email, name FROM users WHERE id = $1", [user_id]);
+        
+        if (userRes.rows.length > 0) {
+          const userEmail = userRes.rows[0].email;
+          const userName = userRes.rows[0].name;
+
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: userEmail,
+            subject: '🚨 Aura Finance Alert: Budget Exceeded!',
+            text: `Hi ${userName},\n\nWarning! You have crossed your monthly budget of ₹${BUDGET_LIMIT}.\n\nYour current total expense is: ₹${totalExpense}.\n\nPlease check your Aura Finance app to control your spending.\n\nStay safe,\nAura Finance Team.`
+          };
+
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) console.log("Email anuppa mudiyala:", error);
+            else console.log("Alert Email thelivaa anuppiyachu! 🚀");
+          });
+        }
+      }
+    }
+
     res.json(newExpense.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// UPDATE
 app.put('/api/expenses/:id', async (req, res) => {
   const { id } = req.params;
   const { amount, category, type } = req.body;
@@ -136,6 +175,7 @@ app.put('/api/expenses/:id', async (req, res) => {
   }
 });
 
+// DELETE
 app.delete('/api/expenses/:id', async (req, res) => {
   const { id } = req.params;
   try {
