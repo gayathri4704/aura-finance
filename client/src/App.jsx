@@ -6,11 +6,11 @@ import * as XLSX from 'xlsx';
 
 function App() {
   // ==========================================
-  // 🔐 AUTHENTICATION STATES (NEW)
+  // 🔐 AUTHENTICATION STATES
   // ==========================================
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authMode, setAuthMode] = useState('login'); 
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -103,11 +103,12 @@ function App() {
         setEditingId(null); 
       } else {
         await axios.post('https://aura-finance-1.onrender.com/api/expenses', {
-          user_id: user.id, // Fixed: Sends actual Logged in User ID
+          user_id: user.id, 
           amount: parseFloat(amount),
           category: finalCategory,
           description: "Personal",
-          type: type 
+          type: type,
+          budgetLimit: monthlyBudget // IDHU THAAN MISS AAGIRUNDHADHU! Ippo add panniyachu ✅
         });
       }
       
