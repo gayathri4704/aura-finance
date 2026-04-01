@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-// GAYATHRI: Added 'Download' icon for Excel
-import { PlusCircle, Wallet, TrendingDown, TrendingUp, PieChart as PieIcon, Activity, Trash2, Bell, AlertTriangle, Pencil, X, Download } from 'lucide-react';
+import { PlusCircle, Wallet, TrendingDown, TrendingUp, PieChart as PieIcon, Activity, Trash2, Bell, AlertTriangle, Pencil, X, Download, LogOut } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-// GAYATHRI: Import Excel Library
 import * as XLSX from 'xlsx';
 
 function App() {
+  // ==========================================
+  // 🔐 AUTHENTICATION STATES (NEW)
+  // ==========================================
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authName, setAuthName] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  // ==========================================
+  // 💰 EXPENSE STATES
+  // ==========================================
   const [expenses, setExpenses] = useState([]);
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('Expense');
@@ -16,9 +28,11 @@ function App() {
   const [showNotification, setShowNotification] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  // Fetch Expenses only for Logged in User
   const fetchExpenses = async () => {
+    if (!user) return;
     try {
-      const res = await axios.get('https://aura-finance-1.onrender.com/api/expenses');
+      const res = await axios.get(`https://aura-finance-1.onrender.com/api/expenses?user_id=${user.id}`);
       setExpenses(res.data);
     } catch (err) {
       console.error("Backend connect aagala. Check your server!", err);
@@ -26,9 +40,53 @@ function App() {
   };
 
   useEffect(() => {
-    fetchExpenses();
-  }, []);
+    if (token && user) {
+      fetchExpenses();
+    }
+  }, [token, user]);
 
+  // ==========================================
+  // 🚀 AUTHENTICATION FUNCTIONS
+  // ==========================================
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      if (authMode === 'signup') {
+        await axios.post('https://aura-finance-1.onrender.com/api/register', { 
+          name: authName, 
+          email: authEmail, 
+          password: authPassword 
+        });
+        setAuthMode('login');
+        setAuthPassword('');
+        alert("Account created successfully! Please login.");
+      } else {
+        const res = await axios.post('https://aura-finance-1.onrender.com/api/login', { 
+          email: authEmail, 
+          password: authPassword 
+        });
+        setToken(res.data.token);
+        setUser(res.data.user);
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+      }
+    } catch (err) {
+      setAuthError(err.response?.data?.error || "Authentication failed. Try again.");
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setExpenses([]);
+  };
+
+  // ==========================================
+  // 📝 EXPENSE FUNCTIONS
+  // ==========================================
   const handleSave = async (e) => {
     e.preventDefault();
     if (!amount) return;
@@ -45,7 +103,7 @@ function App() {
         setEditingId(null); 
       } else {
         await axios.post('https://aura-finance-1.onrender.com/api/expenses', {
-          user_id: 1, 
+          user_id: user.id, // Fixed: Sends actual Logged in User ID
           amount: parseFloat(amount),
           category: finalCategory,
           description: "Personal",
@@ -97,7 +155,6 @@ function App() {
     setCustomCategory('');
   };
 
-  // GAYATHRI: Excel Download Function
   const exportToExcel = () => {
     const excelData = expenses.map(exp => ({
       Date: new Date(exp.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -115,7 +172,6 @@ function App() {
   const totalIncome = expenses.filter(e => e.type === 'Income').reduce((s, e) => s + parseFloat(e.amount), 0);
   const totalExpense = expenses.filter(e => e.type === 'Expense' || !e.type).reduce((s, e) => s + parseFloat(e.amount), 0);
   const currentBalance = totalIncome - totalExpense;
-  
   const remainingBudget = monthlyBudget - totalExpense;
   const isOverBudget = remainingBudget < 0; 
   const overspentAmount = Math.abs(remainingBudget); 
@@ -132,51 +188,124 @@ function App() {
   }, []);
 
   const COLORS = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#eab308', '#14b8a6'];
-
   const expenseCategories = ["Food", "Rent", "Shopping", "Travel", "Investments", "Others"];
   const incomeCategories = ["Salary", "Freelance", "Bonus", "Investments Return", "Others"];
 
+  // ==========================================
+  // 🎨 UI: LOGIN & SIGNUP SCREEN
+  // ==========================================
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 w-full max-w-md">
+          <div className="flex justify-center mb-8">
+            <h1 className="text-3xl font-extrabold text-slate-800 flex items-center tracking-tight">
+              <Activity className="mr-3 text-sky-500 w-8 h-8" /> 
+              Aura<span className="text-sky-600 ml-1">Finance</span>
+            </h1>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-center text-slate-700 mb-6">
+            {authMode === 'login' ? 'Welcome Back!' : 'Create an Account'}
+          </h2>
+
+          {authError && (
+            <p className="text-red-500 text-sm text-center font-bold mb-4 bg-red-50 p-3 rounded-lg border border-red-100">
+              {authError}
+            </p>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-5">
+            {authMode === 'signup' && (
+              <input 
+                type="text" placeholder="Full Name" required
+                className="w-full p-4 text-base bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-200"
+                value={authName} onChange={(e) => setAuthName(e.target.value)}
+              />
+            )}
+            <input 
+              type="email" placeholder="Email Address" required
+              className="w-full p-4 text-base bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-200"
+              value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
+            />
+            <input 
+              type="password" placeholder="Password" required
+              className="w-full p-4 text-base bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-sky-200"
+              value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
+            />
+            <button 
+              type="submit" 
+              className="w-full bg-sky-600 text-white py-4 rounded-xl text-lg font-bold shadow-lg hover:bg-sky-700 transition-all active:scale-95"
+            >
+              {authMode === 'login' ? 'Login Securely' : 'Sign Up'}
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-slate-500">
+            {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            <button 
+              onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(''); }}
+              className="text-sky-600 font-bold hover:underline"
+            >
+              {authMode === 'login' ? 'Sign Up' : 'Login'}
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 🎨 UI: MAIN DASHBOARD SCREEN
+  // ==========================================
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       
-      {/* HEADER */}
+      {/* HEADER WITH LOGOUT */}
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-slate-200 relative">
         <h1 className="text-3xl font-extrabold text-slate-800 flex items-center tracking-tight">
           <Activity className="mr-3 text-sky-500 w-8 h-8" /> 
           Aura<span className="text-sky-600 ml-1">Finance</span>
         </h1>
         
-        <div className="relative">
-          {(isOverBudget || isNearBudget) && (
-            <button 
-              onClick={() => setShowNotification(!showNotification)}
-              className="relative p-2 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-100 transition-all"
-            >
-              {isOverBudget ? <AlertTriangle className="w-6 h-6 text-red-500 animate-pulse" /> : <Bell className="w-6 h-6 text-orange-500 animate-bounce" />}
-              <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-          )}
-          {showNotification && (isOverBudget || isNearBudget) && (
-            <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-50 animate-in fade-in slide-in-from-top-4">
-              {isOverBudget ? (
-                <div className="text-red-700">
-                  <div className="flex items-center gap-2 border-b border-red-100 pb-2 mb-3">
-                    <AlertTriangle className="w-5 h-5" />
-                    <p className="font-bold text-lg">Over Budget!</p>
+        <div className="flex items-center gap-6">
+          <div className="relative">
+            {(isOverBudget || isNearBudget) && (
+              <button 
+                onClick={() => setShowNotification(!showNotification)}
+                className="relative p-2 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-100 transition-all"
+              >
+                {isOverBudget ? <AlertTriangle className="w-6 h-6 text-red-500 animate-pulse" /> : <Bell className="w-6 h-6 text-orange-500 animate-bounce" />}
+                <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+            )}
+            {showNotification && (isOverBudget || isNearBudget) && (
+              <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 z-50 animate-in fade-in slide-in-from-top-4">
+                {isOverBudget ? (
+                  <div className="text-red-700">
+                    <div className="flex items-center gap-2 border-b border-red-100 pb-2 mb-3">
+                      <AlertTriangle className="w-5 h-5" />
+                      <p className="font-bold text-lg">Over Budget!</p>
+                    </div>
+                    <p className="text-sm">You crossed your budget by <span className="font-extrabold text-lg">₹{overspentAmount.toLocaleString()}</span>.</p>
                   </div>
-                  <p className="text-sm">You crossed your budget by <span className="font-extrabold text-lg">₹{overspentAmount.toLocaleString()}</span>.</p>
-                </div>
-              ) : (
-                <div className="text-orange-800">
-                  <div className="flex items-center gap-2 border-b border-orange-100 pb-2 mb-3">
-                    <Bell className="w-5 h-5" />
-                    <p className="font-bold text-lg">Budget Reminder</p>
+                ) : (
+                  <div className="text-orange-800">
+                    <div className="flex items-center gap-2 border-b border-orange-100 pb-2 mb-3">
+                      <Bell className="w-5 h-5" />
+                      <p className="font-bold text-lg">Budget Reminder</p>
+                    </div>
+                    <p className="text-sm">Only <span className="font-extrabold text-lg">₹{remainingBudget.toLocaleString()}</span> is remaining.</p>
                   </div>
-                  <p className="text-sm">Only <span className="font-extrabold text-lg">₹{remainingBudget.toLocaleString()}</span> is remaining.</p>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleLogout} className="flex items-center gap-2 text-slate-400 hover:text-red-500 font-bold transition-colors">
+            <LogOut className="w-5 h-5" /> 
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </header>
 
@@ -320,14 +449,13 @@ function App() {
           )}
         </div>
 
-        {/* RIGHT: RECENT HISTORY WITH EXPORT BUTTON */}
+        {/* RIGHT: RECENT HISTORY */}
         <div className="bg-white p-7 rounded-3xl shadow-lg border border-slate-100 lg:col-span-1 max-h-[600px] flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800 flex items-center">
               <Activity className="mr-3 text-sky-500 w-6 h-6" /> Recent History
             </h2>
             
-            {/* GAYATHRI: Idhu thaan andha Export Button! */}
             <button 
               onClick={exportToExcel}
               className="flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors"
