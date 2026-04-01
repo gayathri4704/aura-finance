@@ -24,7 +24,7 @@ function App() {
   const [type, setType] = useState('Expense');
   const [category, setCategory] = useState('Food');
   const [customCategory, setCustomCategory] = useState('');
-  const [monthlyBudget, setMonthlyBudget] = useState(50000);
+  const [monthlyBudget, setMonthlyBudget] = useState('');
   const [showNotification, setShowNotification] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
