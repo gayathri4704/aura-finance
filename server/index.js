@@ -7,9 +7,11 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Email Setup
+// Email Setup - FIXED FOR RENDER (Connection Timeout Issue)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -128,7 +130,6 @@ app.post('/api/expenses', async (req, res) => {
         [user_id]
       );
       
-      // GAYATHRI: Inga thaan andha Number() trick add aagirukku! 👇
       const totalExpense = Number(totalRes.rows[0].total) || 0;
       const BUDGET_LIMIT = Number(budgetLimit) || 0;
 
